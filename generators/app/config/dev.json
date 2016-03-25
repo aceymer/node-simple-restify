@@ -1,0 +1,6 @@
+{
+  "mongo": {
+    "uri": "mongodb://localhost/dev"
+  },
+  "seedDB": true
+}
