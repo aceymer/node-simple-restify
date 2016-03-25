@@ -16,14 +16,14 @@ app.use(methodOverride());
 
 mongoose.connect(config.mongo.uri);
 
-glob("**/api/**/endpoint.json", function (er, endpoints) {
+glob("**/api/**/*.restify.js", function (er, endpoints) {
   endpoints.forEach(function(endpoint){
-    var endpointInfo = require('../' + endpoint);
-    require('../server/api/' + endpointInfo.name + '/' + endpointInfo.name + '.restify.js').default(router);
+    require('../' + endpoint).default(router);
   });
   app.use(router);
-});
 
-app.listen(9000, function () {
-  console.log('Express server listening on port 9000');
+  app.listen(9000, function () {
+    console.log('Express server listening on port 9000');
+  });
+
 });

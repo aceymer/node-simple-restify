@@ -7,5 +7,5 @@ var restify = require('express-restify-mongoose');
 
 export default function(router) {
 
-  restify.serve(router, theModel);
+  restify.serve(router, theModel.default);
 }

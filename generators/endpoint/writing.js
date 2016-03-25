@@ -6,7 +6,8 @@ module.exports = function() {
   this.fs.copyTpl(
     this.templatePath('endpoint.model.js'),
     this.destinationPath('server/api/' + endpointName + '/' + endpointName + '.model.js'),
-    {data: endpointName.substr(0, 1).toUpperCase() + endpointName.substr(1)}
+    //{data: endpointName.substr(0, 1).toUpperCase() + endpointName.substr(1)}
+    {data: endpointName}
   );
 
   this.fs.copyTpl(

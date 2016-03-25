@@ -1,7 +1,7 @@
 {
-  "name": "generator-angular2-restify",
+  "name": "generator-node-simple-restify",
   "version": "0.1.0",
-  "description": "We will use Angular2 as frontend and express-restify-mongoose as REST API",
+  "description": "We will use express-restify-mongoose to create a REST API",
   "files": [
     "generators/app",
     "generators/endpoint"
