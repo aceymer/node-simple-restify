@@ -2,5 +2,9 @@
   "mongo": {
     "uri": "mongodb://localhost/dev"
   },
-  "seedDB": true
+  "seedDB": true,
+  "userRoles": ["guest", "user", "admin", "superAdmin"],
+  "secrets": {
+    "session": "courseplanner-secret"
+  }
 }

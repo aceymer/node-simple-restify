@@ -16,14 +16,113 @@ app.use(methodOverride());
 
 mongoose.connect(config.mongo.uri);
 
-glob("**/api/**/*.restify.js", function (er, endpoints) {
-  endpoints.forEach(function(endpoint){
+//Passport
+const passport = require('passport');
+const Strategy = require('passport-local');
+const expressJwt = require('express-jwt');
+const http = require('http');
+const jwt = require('jsonwebtoken');
+const logger = require('morgan');
+const TOKENTIME = 120 * 60; // in seconds
+
+const authenticate = expressJwt({
+  secret: config.secrets.session
+});
+
+// Populate databases with sample data
+if (config.seedDB) { require('./config/seed'); }
+
+glob("**/api/**/*.restify.js", function(er, endpoints) {
+
+  endpoints.forEach(function(endpoint) {
     require('../' + endpoint).default(router);
   });
+
   app.use(router);
 
-  app.listen(9000, function () {
+  var User = require('./api/user/user.model').default;
+
+  //////////////
+  // passport //
+  //////////////
+  passport.use(new Strategy({
+      usernameField: 'email',
+      passwordField: 'password' // this is the virtual field on the model
+    },
+    function(email, password, done) {
+      localAuthenticate(User, email, password, done);
+    }
+  ));
+
+  app.post('/auth', passport.initialize(), passport.authenticate(
+    'local', {
+      session: false,
+      scope: []
+    }), generateToken, respond);
+
+  app.get('/me', authenticate, function(req, res) {
+    User.findOneAsync({ _id: req.user.id }, '-salt -password')
+    .then(function(user) { // don't ever give out the password or salt
+      if (!user) {
+        return res.status(401).end();
+      }
+      res.status(200).json(user);
+    })
+    .catch(function(err){
+      console.log(err);
+      return res.status(500).end();
+    });
+  });
+
+  app.listen(9000, function() {
     console.log('Express server listening on port 9000');
   });
 
 });
+
+////////////
+// helper //
+////////////
+
+function generateToken(req, res, next) {
+  req.token = jwt.sign({
+    id: req.user._id,
+  }, config.secrets.session, {
+    expiresIn: TOKENTIME
+  });
+  next();
+}
+
+function respond(req, res) {
+
+  res.status(200).json({
+    user: req.user,
+    token: req.token
+  });
+}
+
+function localAuthenticate(User, email, password, done) {
+  User.findOneAsync({
+    email: email.toLowerCase()
+  })
+    .then(function(user) {
+      if (!user) {
+        return done(null, false, {
+          message: 'This email is not registered.'
+        });
+      }
+      user.authenticate(password, function(authError, authenticated) {
+        if (authError) {
+          return done(authError);
+        }
+        if (!authenticated) {
+          return done(null, false, { message: 'This password is not correct.' });
+        } else {
+          return done(null, user);
+        }
+      });
+    })
+    .catch(function(err){
+      done(err);
+    } );
+}
