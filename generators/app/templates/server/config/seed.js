@@ -5,7 +5,7 @@
  /*jshint esversion: 6 */
 
 'use strict';
-import User from '../api/user/user.model';
+const User = require('../api/user/user.model');
 
 User.find({}).removeAsync()
   .then(() => {

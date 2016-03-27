@@ -1,6 +1,5 @@
 /*jshint esversion: 6 */
 
-const babel = require('babel-core/register');
 const express = require('express');
 const bodyParser = require('body-parser');
 const methodOverride = require('method-override');
@@ -35,12 +34,12 @@ if (config.seedDB) { require('./config/seed'); }
 glob("**/api/**/*.restify.js", function(er, endpoints) {
 
   endpoints.forEach(function(endpoint) {
-    require('../' + endpoint).default(router);
+    require('../' + endpoint)(router);
   });
 
   app.use(router);
 
-  var User = require('./api/user/user.model').default;
+  var User = require('./api/user/user.model');
 
   //////////////
   // passport //
