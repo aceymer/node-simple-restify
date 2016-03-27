@@ -34,7 +34,7 @@ if (config.seedDB) { require('./config/seed'); }
 glob("**/api/**/*.restify.js", function(er, endpoints) {
 
   endpoints.forEach(function(endpoint) {
-    require('../' + endpoint)(router);
+    require('./' + endpoint)(router);
   });
 
   app.use(router);

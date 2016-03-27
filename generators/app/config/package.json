@@ -14,7 +14,9 @@
     "jsonwebtoken": "^5.0.0",
     "express-jwt": "^3.0.0",
     "passport": "~0.3.0",
-    "passport-local": "^1.0.0"
+    "passport-local": "^1.0.0",
+    "del": "^2.2.0",
+    "run-sequence": "^1.1.5"
   },
   "devDependencies": {
     "gulp": "^3.9.1",
