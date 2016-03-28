@@ -20,11 +20,23 @@ module.exports = generators.Base.extend({
     obj.description = "The app called " + this.appname;
     this.fs.writeJSON(this.destinationPath('package.json'), obj);
   },
-  devConfig: function devConfig() {
-    var obj = this.fs.readJSON(this.templatePath('../config/dev.json'));
-    console.log(obj);
-    obj.mongo.uri = 'mongodb://localhost/' + this.appname + '-dev';
-    this.fs.writeJSON(this.destinationPath('server/config/dev.json'), obj);
+  config: function config() {
+    var appName = this.appname;
+    this.fs.copyTpl(
+      this.templatePath('../config/development.js'),
+      this.destinationPath('server/config/development.js'),
+      {data: appName}
+    );
+    this.fs.copyTpl(
+      this.templatePath('../config/production.js'),
+      this.destinationPath('server/config/production.js'),
+      {data: appName}
+    );
+    this.fs.copyTpl(
+      this.templatePath('../config/index.js'),
+      this.destinationPath('server/config/index.js'),
+      {data: appName}
+    );
   },
   writing: function() {
     // Copy all non-dotfiles

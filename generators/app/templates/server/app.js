@@ -7,8 +7,14 @@ const mongoose = require('mongoose');
 const restify = require('express-restify-mongoose');
 const app = express();
 const router = express.Router();
-const config = require('./config');
 const glob = require("glob");
+
+
+
+// Set default node environment to development
+var env = process.env.NODE_ENV = process.env.NODE_ENV || 'development';
+
+const config = require('./config');
 
 app.use(bodyParser.json());
 app.use(methodOverride());
@@ -34,7 +40,7 @@ if (config.seedDB) { require('./config/seed'); }
 glob("**/api/**/*.restify.js", function(er, endpoints) {
 
   endpoints.forEach(function(endpoint) {
-    require('./' + endpoint)(router);
+    require('../' + endpoint)(router);
   });
 
   app.use(router);
@@ -73,8 +79,8 @@ glob("**/api/**/*.restify.js", function(er, endpoints) {
     });
   });
 
-  app.listen(9000, function() {
-    console.log('Express server listening on port 9000');
+  app.listen(config.port, config.ip, function() {
+    console.log('Express server listening on %d, in %s mode', config.port, app.get('env'));
   });
 
 });

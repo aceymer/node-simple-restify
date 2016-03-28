@@ -135,7 +135,11 @@ Generator.prototype.rhcAppCreate = function rhcAppCreate() {
   var done = this.async();
 
   this.log(chalk.bold("\nCreating your OpenShift hosting environment, this may take a couple minutes..."));
-  var child = exec('rhc app create '+this.deployedName+' nodejs-0.10 mongodb-2.4 -s --noprompt --no-git NODE_ENV=production', { cwd: 'dist' }, function (err, stdout, stderr) {
+  //\
+  //https://raw.githubusercontent.com/icflorescu/openshift-cartridge-nodejs/master/metadata/manifest.yml \
+  //https://raw.githubusercontent.com/icflorescu/openshift-cartridge-mongodb/master/metadata/manifest.yml
+
+  var child = exec('rhc app create '+this.deployedName+' https://raw.githubusercontent.com/icflorescu/openshift-cartridge-nodejs/master/metadata/manifest.yml mongodb-2.4 --noprompt --no-git NODE_ENV=production', { cwd: 'dist' }, function (err, stdout, stderr) {
     var lines = stdout.split('\n');
     this.log(stdout);
     if (stdout.search('Not authenticated') >= 0 || stdout.search('Invalid characters found in login') >= 0) {
@@ -198,7 +202,7 @@ Generator.prototype.gruntBuild = function gruntBuild() {
   var done = this.async();
 
   this.log(chalk.bold('\nBuilding dist folder, please wait...'));
-  var child = exec('grunt build', function (err, stdout) {
+  var child = exec('gulp build', function (err, stdout) {
     if (err) {
       this.log.error(err);
     }
