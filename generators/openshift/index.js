@@ -139,7 +139,7 @@ Generator.prototype.rhcAppCreate = function rhcAppCreate() {
   //https://raw.githubusercontent.com/icflorescu/openshift-cartridge-nodejs/master/metadata/manifest.yml \
   //https://raw.githubusercontent.com/icflorescu/openshift-cartridge-mongodb/master/metadata/manifest.yml
 
-  var child = exec('rhc app create '+this.deployedName+' https://raw.githubusercontent.com/icflorescu/openshift-cartridge-nodejs/master/metadata/manifest.yml mongodb-2.4 --noprompt --no-git NODE_ENV=production', { cwd: 'dist' }, function (err, stdout, stderr) {
+  var child = exec('rhc app create '+this.deployedName+' nodejs-0.10 mongodb-2.4 --noprompt --no-git NODE_ENV=production', { cwd: 'dist' }, function (err, stdout, stderr) {
     var lines = stdout.split('\n');
     this.log(stdout);
     if (stdout.search('Not authenticated') >= 0 || stdout.search('Invalid characters found in login') >= 0) {
