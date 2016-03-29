@@ -5,7 +5,7 @@
  /*jshint esversion: 6 */
 
 'use strict';
-const User = require('../api/user/user.model');
+const User = require('../api/user/user.model').default;
 
 User.find({}).removeAsync()
   .then(() => {

@@ -5,7 +5,7 @@ var express = require('express');
 var theModel = require('./user.model');
 var restify = require('express-restify-mongoose');
 
-module.exports = function(router) {
+export default function(router) {
 
-  restify.serve(router, theModel);
-};
+  restify.serve(router, theModel.default);
+}

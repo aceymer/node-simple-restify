@@ -2,6 +2,7 @@
 'use strict';
 
 const gulp = require('gulp'),
+  git = require('gulp-git'),
   watch = require('gulp-watch'),
   jshint = require('gulp-jshint'),
   browserify = require('gulp-browserify'),
@@ -28,7 +29,7 @@ const paths = {
  */
 gulp.task('server', function() {
   if (node) node.kill();
-  node = spawn('node', ['./server/app.js'], {
+  node = spawn('node', ['./server'], {
     stdio: 'inherit'
   });
   node.on('close', function(code) {
@@ -45,7 +46,7 @@ gulp.task('server', function() {
 gulp.task('default', ['lint'],function() {
   gulp.run('server');
 
-  gulp.watch(['./server/app.js', './**/*.js'], function() {
+  gulp.watch(['./server/app.js', './server/**/*.js'], function() {
     gulp.run('server');
   });
 
@@ -100,3 +101,35 @@ gulp.task('transpile:server', function() {
 gulp.task('clean:tmp', function(){
     del(['.tmp/**/*'], {dot: true});
 });
+
+/// Run git add
+// src is the file(s) to add (or ./*)
+gulp.task('add', function(){
+  git.exec({args : '--git-dir=./dist/.git --work-tree=./dist add .'}, function (err, stdout) {
+    if (err) throw err;
+  });
+  /*return gulp.src('/dist/.')
+    .pipe(git.add({args:'--git-dir=./dist/.git --work-tree=./dist'}, function (err) {
+      if (err) throw err;
+    }));*/
+});
+
+// Run git commit
+// src are the files to commit (or ./*)
+gulp.task('commit', function(){
+  git.exec({args : '--git-dir=./dist/.git --work-tree=./dist commit -am "openshift commit"'}, function (err, stdout) {
+    if (err) throw err;
+  });
+});
+
+// Run git push
+// remote is the remote repo
+// branch is the remote branch to push to
+//--git-dir=./dist/.git --work-tree=./dist
+gulp.task('push', function(){
+  git.exec({args : '--git-dir=./dist/.git --work-tree=./dist push', log:true}, function (err, stdout) {
+    if (err) throw err;
+  });
+});
+
+gulp.task('deploy-openshift', ['add','commit','push']);

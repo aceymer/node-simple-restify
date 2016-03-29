@@ -9,12 +9,8 @@ const app = express();
 const router = express.Router();
 const glob = require("glob");
 
-
-
-// Set default node environment to development
-var env = process.env.NODE_ENV = process.env.NODE_ENV || 'development';
-
 const config = require('./config');
+const User = require('./api/user/user.model');
 
 app.use(bodyParser.json());
 app.use(methodOverride());
@@ -37,15 +33,12 @@ const authenticate = expressJwt({
 // Populate databases with sample data
 if (config.seedDB) { require('./config/seed'); }
 
-glob("**/api/**/*.restify.js", function(er, endpoints) {
-
+glob("./server/api/**/*.restify.js", function(er, endpoints) {
   endpoints.forEach(function(endpoint) {
-    require('../' + endpoint)(router);
+    require('../' + endpoint).default(router);
   });
 
   app.use(router);
-
-  var User = require('./api/user/user.model');
 
   //////////////
   // passport //
@@ -65,6 +58,7 @@ glob("**/api/**/*.restify.js", function(er, endpoints) {
       scope: []
     }), generateToken, respond);
 
+  var User = require('./api/user/user.model').default;
   app.get('/me', authenticate, function(req, res) {
     User.findOneAsync({ _id: req.user.id }, '-salt -password')
     .then(function(user) { // don't ever give out the password or salt
@@ -84,7 +78,6 @@ glob("**/api/**/*.restify.js", function(er, endpoints) {
   });
 
 });
-
 ////////////
 // helper //
 ////////////
