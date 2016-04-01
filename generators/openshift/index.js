@@ -19,14 +19,22 @@ module.exports = generators.Base.extend({
     }
     this.appname = s.slugify(this.appname).split('-').join('');
     this.filters = this.config.get('filters') || {};
-
   },
-  initializing: function () {
-    this.log(chalk.bold('writing'));
-    var done = this.async();
+  initializing: function() {
+    this.distExtists = this.fs.read(this.destinationPath('dist/.openshift/markers/NODEJS_VERSION'));
+
     var me = this;
-    this.fs.commit(function(){
-      me.log(chalk.bold('Files copied'));
+    var done = this.async();
+    if (this.distExtists) {
+      this.log(chalk.bold('Your application is already on openshift it seems, only adding new files to the server.'));
+      this.log(chalk.bold('If you wish to reset your server please delete the dist folder in your root.'));
+      this.openshift_remote_exists = true;
+      done();
+      return;
+    }
+    this.log(chalk.bold('Copying default files to dist'));
+    this.fs.commit(function() {
+      me.log(chalk.bold('Files copied, ok'));
       done();
     });
     this.fs.copyTpl(
@@ -50,7 +58,8 @@ module.exports = generators.Base.extend({
       this.destinationPath('dist/README.md')
     );
   },
-  prompting: function () {
+  prompting: function() {
+    if (this.distExtists) return;
     var done = this.async();
 
     var prompts = [{
@@ -64,134 +73,153 @@ module.exports = generators.Base.extend({
       done();
     }.bind(this));
   },
-  default: function (){
-    if(this.abort) return;
-      var done = this.async();
-
-      exec('rhc --version', function (err) {
-        if (err) {
-          this.log.error('OpenShift\'s rhc command line interface is not available. ' +
-                         'You can install it via RubyGems with: gem install rhc');
-          this.abort = true;
-        }
-        done();
-      }.bind(this));
-  },
-  gitInit: function gitInit(){
-    if(this.abort) return;
-      var done = this.async();
-
-      this.log(chalk.bold('Initializing deployment repo'));
-
-      exec('git init', { cwd: 'dist' }, function (err, stdout, stderr) {
-        this.log(stdout);
-        done();
-      }.bind(this));
-  },
-  gitRemoteCheck : function gitRemoteCheck(){
-      this.openshift_remote_exists = false;
-      if(this.abort || typeof this.dist_repo_url !== 'undefined') return;
-      var done = this.async();
-
-      this.log(chalk.bold("\nChecking for an existing git remote named '"+'openshift'+"'..."));
-      exec('git remote -v', { cwd: 'dist' }, function (err, stdout, stderr) {
-        var lines = stdout.split('\n');
-        var dist_repo = '';
-        if (err && stderr.search('DL is deprecated') === -1) {
-          this.log.error(err);
-        } else {
-          var repo_url_finder = new RegExp('openshift'+"[  ]*");
-          lines.forEach(function(line) {
-            if(line.search(repo_url_finder) === 0 && dist_repo === '') {
-              var dist_repo_detailed = line.slice(line.match(repo_url_finder)[0].length);
-              dist_repo = dist_repo_detailed.slice(0, dist_repo_detailed.length - 7);
-          }});
-          if (dist_repo !== ''){
-            console.log("Found an existing git remote for this app: "+dist_repo);
-            this.dist_repo_url = dist_repo;
-            this.openshift_remote_exists = true;
-          } else {
-            console.log('No existing remote found.');
-          }
-        }
-        done();
-      }.bind(this));
-  },
-  rhcAppShow : function rhcAppShow(){
-      if(this.abort || typeof this.dist_repo_url !== 'undefined') return;
-      var done = this.async();
-
-      this.log(chalk.bold("\nChecking for an existing OpenShift hosting environment..."));
-      var child = exec('rhc app show '+this.deployedName+' --noprompt', { cwd: 'dist' }, function (err, stdout, stderr) {
-        var lines = stdout.split('\n');
-        var dist_repo = '';
-        // Unauthenticated
-        if (stdout.search('Not authenticated') >= 0 || stdout.search('Invalid characters found in login') >= 0) {
-          this.log.error('Error: Not authenticated. Run "rhc setup" to login to your OpenShift account and try again.');
-          this.abort = true;
-        }
-        // No remote found
-        else if (stdout.search('not found.') >= 0) {
-          console.log('No existing app found.');
-        }
-        // Error
-        else if (err && stderr.search('DL is deprecated') === -1) {
-          this.log.error(err);
-        }
-        // Remote found
-        else {
-          this.log(stdout);
-          var repo_url_finder = / *Git URL: */;
-          lines.forEach(function(line) {
-            if(line.search(repo_url_finder) === 0) {
-              dist_repo = line.slice(line.match(repo_url_finder)[0].length);
-              console.log("Found an existing git remote for this app: "+dist_repo);
-          }});
-          if (dist_repo !== '') this.dist_repo_url = dist_repo;
-        }
-        done();
-      }.bind(this));
-  },
-  rhcAppCreate: function rhcAppCreate(){
-    if(this.abort || typeof this.dist_repo_url !== 'undefined') return;
-      var done = this.async();
-
-      this.log(chalk.bold("\nCreating your OpenShift hosting environment, this may take a couple minutes..."));
-      var child = exec('rhc app create '+this.deployedName+' nodejs-0.10 mongodb-2.4 --noprompt --no-git NODE_ENV=production', { cwd: 'dist' }, function (err, stdout, stderr) {
-        var lines = stdout.split('\n');
-        this.log(stdout);
-        if (stdout.search('Not authenticated') >= 0 || stdout.search('Invalid characters found in login') >= 0) {
-          this.log.error('Error: Not authenticated. Run "rhc setup" to login to your OpenShift account and try again.');
-          this.abort = true;
-        } else if (err && stderr.search('DL is deprecated') === -1) {
-          this.log.error(err);
-        } else {
-          var dist_repo = '';
-          var repo_url_finder = / *Git remote: */;
-          lines.forEach(function(line) {
-            if(line.search(repo_url_finder) === 0) {
-              dist_repo = line.slice(line.match(repo_url_finder)[0].length);
-          }});
-
-          if (dist_repo !== '') this.dist_repo_url = dist_repo;
-          if(this.dist_repo_url !== undefined) {
-            this.log("New remote git repo at: "+this.dist_repo_url);
-          }
-        }
-
-        done();
-      }.bind(this));
-
-      child.stdout.on('data', function(data) {
-        this.log(data.toString());
-      }.bind(this));
-  },
-  gitRemoteAdd: function(){
-    if(this.abort || typeof this.dist_repo_url === 'undefined' || this.openshift_remote_exists) return;
+  default: function() {
+    if (this.distExtists) return;
+    if (this.abort) return;
     var done = this.async();
-    this.log(chalk.bold("\nAdding remote repo url: "+this.dist_repo_url));
 
-    var child = exec('git remote add '+'openshift'+' '+this.dist_repo_url, { cwd: 'dist' }, function (err, stdout, stderr) {
+    exec('rhc --version', function(err) {
+      if (err) {
+        this.log.error('OpenShift\'s rhc command line interface is not available. ' +
+          'You can install it via RubyGems with: gem install rhc');
+        this.abort = true;
+      }
+      done();
+    }.bind(this));
+  },
+  gitInit: function gitInit() {
+    if (this.distExtists) return;
+    if (this.abort) return;
+    var done = this.async();
+
+    this.log(chalk.bold('Initializing deployment repo'));
+
+    exec('git init', {
+      cwd: 'dist'
+    }, function(err, stdout, stderr) {
+      this.log(stdout);
+      done();
+    }.bind(this));
+  },
+  gitRemoteCheck: function gitRemoteCheck() {
+    if (this.distExtists) return;
+    this.openshift_remote_exists = false;
+    if (this.abort || typeof this.dist_repo_url !== 'undefined') return;
+    var done = this.async();
+
+    this.log(chalk.bold("\nChecking for an existing git remote named '" + 'openshift' + "'..."));
+    exec('git remote -v', {
+      cwd: 'dist'
+    }, function(err, stdout, stderr) {
+      var lines = stdout.split('\n');
+      var dist_repo = '';
+      if (err && stderr.search('DL is deprecated') === -1) {
+        this.log.error(err);
+      } else {
+        var repo_url_finder = new RegExp('openshift' + "[  ]*");
+        lines.forEach(function(line) {
+          if (line.search(repo_url_finder) === 0 && dist_repo === '') {
+            var dist_repo_detailed = line.slice(line.match(repo_url_finder)[0].length);
+            dist_repo = dist_repo_detailed.slice(0, dist_repo_detailed.length - 7);
+          }
+        });
+        if (dist_repo !== '') {
+          console.log("Found an existing git remote for this app: " + dist_repo);
+          this.dist_repo_url = dist_repo;
+          this.openshift_remote_exists = true;
+        } else {
+          console.log('No existing remote found.');
+        }
+      }
+      done();
+    }.bind(this));
+  },
+  rhcAppShow: function rhcAppShow() {
+    if (this.distExtists) return;
+    if (this.abort || typeof this.dist_repo_url !== 'undefined') return;
+    var done = this.async();
+
+    this.log(chalk.bold("\nChecking for an existing OpenShift hosting environment..."));
+    var child = exec('rhc app show ' + this.deployedName + ' --noprompt', {
+      cwd: 'dist'
+    }, function(err, stdout, stderr) {
+      var lines = stdout.split('\n');
+      var dist_repo = '';
+      // Unauthenticated
+      if (stdout.search('Not authenticated') >= 0 || stdout.search('Invalid characters found in login') >= 0) {
+        this.log.error('Error: Not authenticated. Run "rhc setup" to login to your OpenShift account and try again.');
+        this.abort = true;
+      }
+      // No remote found
+      else if (stdout.search('not found.') >= 0) {
+        console.log('No existing app found.');
+      }
+      // Error
+      else if (err && stderr.search('DL is deprecated') === -1) {
+        this.log.error(err);
+      }
+      // Remote found
+      else {
+        this.log(stdout);
+        var repo_url_finder = / *Git URL: */;
+        lines.forEach(function(line) {
+          if (line.search(repo_url_finder) === 0) {
+            dist_repo = line.slice(line.match(repo_url_finder)[0].length);
+            console.log("Found an existing git remote for this app: " + dist_repo);
+          }
+        });
+        if (dist_repo !== '') this.dist_repo_url = dist_repo;
+      }
+      done();
+    }.bind(this));
+  },
+  rhcAppCreate: function rhcAppCreate() {
+    if (this.distExtists) return;
+    if (this.abort || typeof this.dist_repo_url !== 'undefined') return;
+    var done = this.async();
+
+    this.log(chalk.bold("\nCreating your OpenShift hosting environment, this may take a couple minutes..."));
+    var child = exec('rhc app create ' + this.deployedName + ' nodejs-0.10 mongodb-2.4 --noprompt --no-git NODE_ENV=production', {
+      cwd: 'dist'
+    }, function(err, stdout, stderr) {
+      var lines = stdout.split('\n');
+      this.log(stdout);
+      if (stdout.search('Not authenticated') >= 0 || stdout.search('Invalid characters found in login') >= 0) {
+        this.log.error('Error: Not authenticated. Run "rhc setup" to login to your OpenShift account and try again.');
+        this.abort = true;
+      } else if (err && stderr.search('DL is deprecated') === -1) {
+        this.log.error(err);
+      } else {
+        var dist_repo = '';
+        var repo_url_finder = / *Git remote: */;
+        lines.forEach(function(line) {
+          if (line.search(repo_url_finder) === 0) {
+            dist_repo = line.slice(line.match(repo_url_finder)[0].length);
+          }
+        });
+
+        if (dist_repo !== '') this.dist_repo_url = dist_repo;
+        if (this.dist_repo_url !== undefined) {
+          this.log("New remote git repo at: " + this.dist_repo_url);
+        }
+      }
+
+      done();
+    }.bind(this));
+
+    child.stdout.on('data', function(data) {
+      this.log(data.toString());
+    }.bind(this));
+  },
+  gitRemoteAdd: function() {
+    if (this.distExtists) return;
+    if (this.abort || typeof this.dist_repo_url === 'undefined' || this.openshift_remote_exists) return;
+    var done = this.async();
+    this.log(chalk.bold("\nAdding remote repo url: " + this.dist_repo_url));
+
+    var child = exec('git remote add ' + 'openshift' + ' ' + this.dist_repo_url, {
+      cwd: 'dist'
+    }, function(err, stdout, stderr) {
       if (err) {
         this.log.error(err);
       } else {
@@ -204,31 +232,34 @@ module.exports = generators.Base.extend({
       this.log(data.toString());
     }.bind(this));
   },
-  gulpBuild: function gulpBuild(){
-
-    if((this.abort !== undefined && this.abort) || !this.openshift_remote_exists ) return;
-      this.log(chalk.bold("\hmmm Done!!!  abort: " +this.abort  + " exists: "+ !this.openshift_remote_exists));
-      var done = this.async();
-
-      this.log(chalk.bold('\nBuilding dist folder, please wait...'));
-      var child = exec('gulp build', function (err, stdout) {
-        if (err) {
-          this.log.error(err);
-        }
-        done();
-      }.bind(this));
-
-      child.stdout.on('data', function(data) {
-        this.log(data.toString());
-      }.bind(this));
-
-  },
-  gitCommit : function gitCommit(){
-    if(this.abort || !this.openshift_remote_exists ) return;
+  gulpBuild: function gulpBuild() {
+    if ((this.abort !== undefined && this.abort) || !this.openshift_remote_exists) return;
     var done = this.async();
 
+    this.log(chalk.bold('\nBuilding dist folder, please wait...'));
+    var child = exec('gulp build', function(err, stdout) {
+      if (err) {
+        this.log.error(err);
+      }
+      done();
+    }.bind(this));
+
+    child.stdout.on('data', function(data) {
+      this.log(data.toString());
+    }.bind(this));
+
+  },
+  gitCommit: function gitCommit() {
+    if (this.abort || !this.openshift_remote_exists) return;
+    var done = this.async();
+    this.commitText = "Initial commit";
     this.log(chalk.bold('\nAdding files for initial commit'));
-    var child = exec('git add -A && git commit -m "Initial commit"', { cwd: 'dist' }, function (err, stdout, stderr) {
+    if (this.distExtists) {
+      this.commitText = "New deploy to Openshift";
+    }
+    var child = exec('git add -A && git commit --allow-empty -m "' + this.commitText + '"', {
+      cwd: 'dist'
+    }, function(err, stdout, stderr) {
       if (stdout.search('nothing to commit') >= 0) {
         this.log('Re-pushing the existing "dist" build...');
       } else if (err) {
@@ -243,71 +274,77 @@ module.exports = generators.Base.extend({
       this.log(data.toString());
     }.bind(this));
   },
-  gitForcePush : function gitForcePush(){
+  gitForcePush: function gitForcePush() {
     if (this.abort || !this.openshift_remote_exists) return;
-     var done = this.async();
-     this.log(chalk.bold("\nUploading your initial application code.\n This may take " + chalk.cyan('several minutes') + " depending on your connection speed..."));
+    var done = this.async();
+    this.log(chalk.bold("\nUploading your initial application code.\n This may take " + chalk.cyan('several minutes') + " depending on your connection speed..."));
 
-     var push = spawn('git', ['push', '-f', 'openshift', 'master'], {cwd: 'dist'});
-     var error = null;
+    var push = spawn('git', ['push', '-f', 'openshift', 'master'], {
+      cwd: 'dist'
+    });
+    var error = null;
 
-     push.stderr.on('data', function (data) {
-       var output = data.toString();
-       this.log.error(output);
-     }.bind(this));
+    push.stderr.on('data', function(data) {
+      var output = data.toString();
+      this.log.error(output);
+    }.bind(this));
 
-     push.stdout.on('data', function (data) {
-       var output = data.toString();
-       this.log.stdin(output);
-     }.bind(this));
+    push.stdout.on('data', function(data) {
+      var output = data.toString();
+      this.log.stdin(output);
+    }.bind(this));
 
-     push.on('exit', function (code) {
-       if (code !== 0) {
-         this.abort = true;
-         return done();
-       }
-       done();
-     }.bind(this));
+    push.on('exit', function(code) {
+      if (code !== 0) {
+        this.abort = true;
+        return done();
+      }
+      done();
+    }.bind(this));
   },
-  restartApp: function restartApp(){
-    if(this.abort || !this.openshift_remote_exists ) return;
-      this.log(chalk.bold("\nRestarting your openshift app.\n"));
+  restartApp: function restartApp() {
+    if (this.abort || !this.openshift_remote_exists) return;
+    this.log(chalk.bold("\nRestarting your openshift app.\n"));
 
       var child = exec('rhc app restart -a ' + this.deployedName, function(err, stdout, stderr) {
+      if (this.distExtists) {
+        this.log(chalk.bold("\nThis could take a while.\n"));
+        return;
+      }
 
-        var host_url = '';
-        var hasWarning = false;
-        var before_hostname = this.dist_repo_url.indexOf('@') + 1;
-        var after_hostname = this.dist_repo_url.length - ( 'openshift'.length + 12 );
-        host_url = 'http://' + this.dist_repo_url.slice(before_hostname, after_hostname) + 'com';
+      var host_url = '';
+      var hasWarning = false;
+      var before_hostname = this.dist_repo_url.indexOf('@') + 1;
+      var after_hostname = this.dist_repo_url.length - ('openshift'.length + 12);
+      host_url = 'http://' + this.dist_repo_url.slice(before_hostname, after_hostname) + 'com';
 
-        if(this.filters.facebookAuth) {
-          this.log(chalk.yellow('You will need to set environment variables for facebook auth:\n\t' +
+      if (this.filters.facebookAuth) {
+        this.log(chalk.yellow('You will need to set environment variables for facebook auth:\n\t' +
           chalk.bold('rhc set-env FACEBOOK_ID=id -a ' + this.deployedName + '\n\t') +
           chalk.bold('rhc set-env FACEBOOK_SECRET=secret -a ' + this.deployedName + '\n')));
-          hasWarning = true;
-        }
-        if(this.filters.googleAuth) {
-          this.log(chalk.yellow('You will need to set environment variables for google auth:\n\t' +
+        hasWarning = true;
+      }
+      if (this.filters.googleAuth) {
+        this.log(chalk.yellow('You will need to set environment variables for google auth:\n\t' +
           chalk.bold('rhc set-env GOOGLE_ID=id -a ' + this.deployedName + '\n\t') +
           chalk.bold('rhc set-env GOOGLE_SECRET=secret -a ' + this.deployedName + '\n')));
-          hasWarning = true;
-        }
-        if(this.filters.twitterAuth) {
-          this.log(chalk.yellow('You will need to set environment variables for twitter auth:\n\t' +
+        hasWarning = true;
+      }
+      if (this.filters.twitterAuth) {
+        this.log(chalk.yellow('You will need to set environment variables for twitter auth:\n\t' +
           chalk.bold('rhc set-env TWITTER_ID=id -a ' + this.deployedName + '\n\t') +
           chalk.bold('rhc set-env TWITTER_SECRET=secret -a ' + this.deployedName + '\n')));
-          hasWarning = true;
-        }
+        hasWarning = true;
+      }
 
-        this.log(chalk.green('\nYour app should now be live at \n\t' + chalk.bold(host_url)));
-        if(hasWarning) {
-          this.log(chalk.green('\nYou may need to address the issues mentioned above and restart the server for the app to work correctly \n\t' +
+      this.log(chalk.green('\nYour app should now be live at \n\t' + chalk.bold(host_url)));
+      if (hasWarning) {
+        this.log(chalk.green('\nYou may need to address the issues mentioned above and restart the server for the app to work correctly \n\t' +
           'rhc app-restart -a ' + this.deployedName));
-        }
-        this.log(chalk.yellow('After app modification run\n\t' + chalk.bold('grunt build') +
+      }
+      this.log(chalk.yellow('After app modification run\n\t' + chalk.bold('grunt build') +
         '\nThen deploy with\n\t' + chalk.bold('grunt buildcontrol:openshift')));
-      }.bind(this));
+    }.bind(this));
   }
 });
 
