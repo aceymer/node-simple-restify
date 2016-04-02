@@ -4,8 +4,7 @@ var mongoose = require('mongoose'),
     Schema = mongoose.Schema;
 
 var TheSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  comment: { type: String }
+  /*Props*/
 });
 
-export default mongoose.model('<%= data %>', TheSchema);
+export default mongoose.model(ost, TheSchema);

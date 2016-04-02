@@ -71,10 +71,10 @@ module.exports = function() {
           }*/
     ];
     var addPropertiesQuestion = [{
-      type: "confirm",
+      type: "list",
       name: "addProperties",
-      message: "Do you wish to add properties to your model (just hit enter for NO)?",
-      default: false
+      choices: ["Yes", "No"],
+      message: "Do you wish to add properties to your model (just hit enter for Yes)?"
     }];
   var questionsProperties = [{
     type: "input",
@@ -84,7 +84,34 @@ module.exports = function() {
       if (value || value === 'exitProps') {
         return true;
       } else {
-        return "Please enter a name for your endpoint (Or write 'exitProps' to exit)";
+        return "Please enter a name for your propery (Or write 'exitProps' to exit)";
+      }
+    }
+  }];
+  var questionsPropertyType = [{
+    type: "list",
+    name: "propertyType",
+    message: 'Whats the type of the property?',
+    choices: ["String", "Number", "Date", "Buffer", "Boolean", "Mixed", "Objectid", "Array"],
+    filter: function(value) {
+      if (value || value === 'exitProps') {
+        return value;
+      } else {
+        return "Please enter a type for your property (Or write 'exitProps' to exit)";
+      }
+    }
+  }];
+
+  var questionsPropertySecurity = [{
+    type: "list",
+    name: "propertySecurity",
+    message: 'How Secure do you want this property to be (public is without security, private you need authentiction, protected you need to have a specific role )?',
+    choices: ["public", "protected", "private"],
+    filter: function(value) {
+      if (value || value === 'exitProps') {
+        return value;
+      } else {
+        return "Please enter a level of security for your property (Or write 'exitProps' to exit)";
       }
     }
   }];
@@ -97,15 +124,27 @@ module.exports = function() {
 
   var askProperties = function() {
     self.prompt(addPropertiesQuestion, function(answers) {
-      if (answers.addProperties) {
+      if (answers.addProperties === 'Yes') {
         self.prompt(questionsProperties, function(answers) {
           if ('exitProps' != answers.propertyName) {
-            if(!self.data.propertiesToAdd){
-              self.data.propertiesToAdd = [];
-            }
-            self.data.propertiesToAdd.push(answers.propertyName);
+            var newProperty = {};
+            newProperty.name = answers.propertyName;
+            self.prompt(questionsPropertyType, function(answers) {
+              if ('exitProps' != answers.propertyType) {
+                newProperty.type = answers.propertyType;
+                self.prompt(questionsPropertySecurity, function(answers) {
+                  if ('exitProps' != answers.propertySecurity) {
+                    newProperty.access = answers.propertySecurity;
+                    if(!self.data.propertiesToAdd){
+                      self.data.propertiesToAdd = [];
+                    }
+                    self.data.propertiesToAdd.push(newProperty);
+                    askProperties();
+                  }
+                });
+              }
+            });
           }
-          askProperties();
         });
       } else {
         done();
